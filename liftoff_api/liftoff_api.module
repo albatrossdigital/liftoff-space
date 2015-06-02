@@ -1,0 +1,218 @@
+<?php
+
+
+define('LIFTOFF_DOMAIN', '.liftoff.space');
+define('LIFTOFF_KEY', 'Z4lSpQl1YS7Mk4xX');
+define('LIFTOFF_SIGNATURE', 'XQslWIHKxuorhtmlvtFAZaqFeeVAQZcB');
+
+
+/**
+ * Maps profile machine names to aegir nid.
+ * This could be done in liftoff_api.module (on aegir).
+ */
+function _liftoff_api_profiles($profile) {
+  $profiles = array(
+    'liftoff' => 558,
+    'helm' => 235,
+  );
+  return $profiles[$profile];
+}
+
+
+/**
+ * Implementation of hook_menu()
+ */
+function liftoff_api_menu() {
+  $items = array();
+
+  $items['liftoff/api'] = array(
+    'title' => 'List',
+    //'page arguments' => array(2),
+    'access callback' => 'liftoff_api_access',
+    'page callback' => 'liftoff_api_callback',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Access callback.
+ */
+function liftoff_api_access() {
+  return $_GET['key'] == LIFTOFF_KEY && $_GET['signature'] == LIFTOFF_SIGNATURE;
+}
+
+
+/**
+ * API callback.
+ */
+function liftoff_api_callback() {
+  $data = $_GET;
+  $action = $data['action'];
+
+  switch ($action) {
+    case 'create':
+    case 'clone':
+      return liftoff_api_create($data);
+      break;    
+    case 'status':
+      return node_load($data['nid']);
+      break;
+  }
+}
+
+
+
+function liftoff_api_create($data) {
+  $url = !empty($data['machine_name']) ? $data['machine_name'] . LIFTOFF_DOMAIN : NULL;
+  $node = new stdClass();
+  $node->created = time();
+  $node->changed = $node->created;
+  $node->status = 1;
+  $node->name = 'liftoffadmin'; // superuser
+  $node->site_data = array('clients' => array(1=>0));
+  
+  switch ($data['action']) {
+    case 'create':     
+      $node->type = 'site';
+      $node->client = 1; // Main aegir user. @todo: create new user with bakery?
+      $node->db_server = 4;
+      $node->name = '';  
+      $node->platform = $data['profile'] == 'helm' ? 946 : 416; // liftoff
+      $node->profile = !empty($data['profile']) ? _liftoff_api_profiles($data['profile']) : 558; // liftoff=558, helm=235, standard=
+      $node->title = $url;
+      $node->hosting_name = $url;
+      $node->site_status = 0;
+      $node->verified = 0;
+      $node->last_cron = 0;
+      $node->cron_key = 0;
+      $node->site_language = 'en';
+      $node->cron_interval = 86400;
+      /*$node->liftoff = (object) array(
+        'user' => $data['user'],
+        'mail' => $data['mail'],
+        'role' => !empty($data['role']) ? $data['role'] : 'administrator',
+        'lat' => !empty($data['lat']) ? $data['lat'] : NULL,
+        'lng' => !empty($data['lng']) ? $data['lng'] : NULL,
+      );*/ 
+      break;
+
+
+    case 'clone':
+      $source_node = node_load($data['nid']);
+      if ($source_node->type == 'site') {
+        $node->type = 'task';
+        $node->task_type = 'clone';
+        $node->task_status = 0;
+        $node->title = 'Clone ' . $source_node->title;
+        $node->rid = $source_node->nid;
+        $node->task_args = array(
+          'new_uri' => $url,
+          'new_db_server' => $source_node->db_server,
+          'target_platform' => $source_node->platform,
+        );
+        // @todo
+        //$node->liftoff =
+      }
+
+      break;
+  }
+
+  if (!empty($node->type) && $node = node_submit($node)) {
+    node_save($node);
+    //hosting_site_data_update($node);
+    $return = array('node' => $node->nid);
+  } else {
+    $node = FALSE;
+  }
+
+  $query = "insert into {liftoff_api_site_data} (vid, nid, machine_name, sitename, user, mail, role, lat, lng) values (
+    '".($node->type == 'site' ? $node->vid : '')."',
+    '".($node->type == 'site' ? $node->nid : '')."',
+    '$url',
+    '".(!empty($data['sitename']) ? $data['sitename'] : $url)."',
+    '".$data['user']."',
+    '".$data['mail']."',
+    '".(!empty($data['role']) ? $data['role'] : 'administrator')."',
+    '".(!empty($data['lat']) ? $data['lat'] : '')."',
+    '".(!empty($data['lng']) ? $data['lng'] : '')."');";
+
+  $result = db_query($query);
+
+  print drupal_json($node);
+
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+/*function liftoff_api_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+        watchdog('albatross', 'NODE RESULT liftoff_api_post_hosting_install_task <pre>!a</pre>', array('!a' => print_r($node, 1)));
+
+  if ($op == 'insert' && ($node->type == 'site' ||) && !empty($node->liftoff)) {
+    
+    watchdog('albatross', 'INSERT RESULT liftoff_api_post_hosting_install_task <pre>!a</pre>', array('!a' => print_r($result, 1)));
+
+  }
+}*/
+
+
+/*
+ * For some reason hook_post_hosting_install_task() wasn't working,
+ * so this is called in hosting_site.drush.inc.
+ */
+
+function liftoff_api_post_hosting_install_task($task, $data) {
+      watchdog('albatross', 'TASK liftoff_api_post_hosting_install_task <pre>!a</pre>', array('!a' => print_r($task, 1)));
+
+  if ($task->ref->type == 'site') {
+    $node = new stdClass();
+    foreach (array('type', 'status', 'uid', 'rid', 'comment', 'promote', 'moderate', 'sticky', 'name', 'format', 'client', 'db_server', 'profile', 'site_status', 'site_language') as $field) {
+      $node->$field = $task->$field;
+    }
+    $result = db_query("SELECT * FROM {liftoff_api_site_data} WHERE machine_name='".$task->ref->title."';");
+    $data = db_fetch_array($result);
+    watchdog('albatross', 'DB DATA liftoff_api_post_hosting_install_task '.$task->ref->title.' <pre>!a</pre>', array('!a' => print_r($data, 1)));
+
+
+    // Add user task
+    $node = new stdClass();
+    foreach (array('type', 'status', 'uid', 'rid', 'comment', 'promote', 'moderate', 'sticky', 'name', 'format', 'client', 'db_server', 'profile', 'site_status', 'site_language') as $field) {
+      $node->$field = $task->$field;
+    }
+    $node->title = 'Add user: ' . $task->title;
+    $node->task_type = 'add_user';
+    $node->task_args = array(
+      $data['user'],
+      $data['mail'],
+      $data['role'],
+    );
+    node_save($node);
+    watchdog('albatross', 'Add user task liftoff_api_post_hosting_install_task <pre>!a</pre>', array('!a' => print_r($node, 1)));
+   
+
+    // liftoff_variables action
+    $node = new stdClass();
+    foreach (array('type', 'status', 'uid', 'rid', 'comment', 'promote', 'moderate', 'sticky', 'name', 'format', 'client', 'db_server', 'profile', 'site_status', 'site_language') as $field) {
+      $node->$field = $task->$field;
+    }
+    $node->title = 'Liftoff variables: ' . $task->title;
+    $node->task_type = 'liftoff_variables';
+    $node->task_args = array(
+      $data['sitename'],
+      str_replace('-', '\-', $data['lat']),
+      str_replace('-', '\-', $data['lng']),
+    );
+    node_save($node);
+  }
+
+
+}
+
+
+
+function  liftoff_api_post_hosting_import_task($task, $data) {
+  return liftoff_api_post_hosting_install_task($task, $data);
+}

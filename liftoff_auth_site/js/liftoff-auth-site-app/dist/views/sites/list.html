@@ -1,0 +1,13 @@
+<div class="row site-list">
+  <div class="col-xs-6 col-sm-3 thumbnail" ng-click="loadNew()">
+    <a ui-sref="create"><span class="fa fa-5 fa-plus-circle"></span></a>
+    <h4>New site</h4>
+  </div>
+
+  <div class="col-xs-6 col-sm-3 thumbnail" ng-repeat="node in nodes" ng-click="loadSite(node)">
+    <span class="fa fa-5 fa-{{node.icon}}"></span>
+    <h4>{{node.title}}</h4>
+    <span class="text-muted">{{node.field_machine_name}}.liftoff.albatrossdigital.com</span>
+  </div>
+
+</div>

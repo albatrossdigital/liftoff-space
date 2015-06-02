@@ -1,0 +1,348 @@
+<?php
+/**
+ * @file
+ * Code for the liftoff_auth_site feature.
+ */
+
+include_once 'liftoff_auth_site.features.inc';
+define('LIFTOFF_AUTH_SITE_URL', 'https://o1.liftoff.albatrossdigital.com/liftoff/api');
+define('LIFTOFF_AUTH_SITE_KEY', 'Z4lSpQl1YS7Mk4xX');
+define('LIFTOFF_AUTH_SITE_SIGNATURE', 'XQslWIHKxuorhtmlvtFAZaqFeeVAQZcB');
+
+define('LIFTOFF_AUTH_HELMCIVIC_SIGNATURE', 'eL92a6GsS0pAQ5lzcxSEg8lGhYwAheoB');
+define('LIFTOFF_AUTH_LIFTOFF_SIGNATURE', 'YSjKPSQhIlndnrlw8Ez4GnhqXpluMzis');
+
+
+/**
+ * Implements hook_menu().
+ */
+function liftoff_auth_site_menu() {
+
+  $items['status/%node'] = array(
+    'title' => 'Get site status',
+    'page callback' => 'liftoff_auth_site_status_callback',
+    'page arguments' => array(1),
+    'access callback' => TRUE, // @todo: check user access to node
+    //'access arguments' => array('node_access', 'update', 1),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['api/create'] = array(
+    'title' => 'Create',
+    'page callback' => 'liftoff_auth_site_api_create',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['manage'] = array(
+    'title' => 'Sites',
+    'description' => 'Your Sites',
+    'page callback' => 'liftoff_auth_site_app_callback',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+
+
+/**
+ * Returns current status from aegir.
+ */
+function liftoff_auth_site_status_callback($node) {
+  if (!empty($node->field_aegir_nid) && !empty($node->field_aegir_nid[LANGUAGE_NONE])) {
+    $args = array(
+      'action' => 'status',  
+      'nid' => $node->field_aegir_nid[LANGUAGE_NONE][0]['value'],
+    );
+
+    $aegir_node = _liftoff_auth_site_api($args);
+    if ($aegir_node->site_status && !$node->status) {
+      $node->status = TRUE;
+      node_save($node);
+    }
+
+    $return = array(
+      'nid' => $node->nid,
+      'status' => $aegir_node->site_status,
+    );
+    drupal_json_output($return);
+  }
+}
+
+
+
+/**
+ * Create a new user and site.
+ * 
+ * Querystring params:
+ * ?profile&name&email&title&machine_name&lat&lng
+ */
+function liftoff_auth_site_api_create() {
+  $data = $_REQUEST;
+
+  if ( !(
+    ($data['profile'] == 'helmcivic' && $data['key'] == LIFTOFF_AUTH_HELMCIVIC_SIGNATURE) ||
+    ($data['profile'] == 'liftoff' && $data['key'] == LIFTOFF_AUTH_LIFTOFF_SIGNATURE)
+  )) {
+    drupal_access_denied();
+  }
+
+  // Only helmcivic sites are enabled by default
+  // Because we have a wait list for liftoff
+  $status = $data['profile'] == 'helmcivic';
+
+  if (empty($data['mail']) && !empty($data['email'])) {
+    $data['mail'] = $data['email'];
+  }
+  $password = user_password(8);
+  $fields = array(
+    'mail' => $data['mail'],
+    'pass' => $password,
+    'status' => $status,
+    'init' => 'email address',
+    'roles' => array(
+      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+    ),
+    'profile' => $data['profile'],
+  );
+  if (!empty($data['name'])) {
+    $name = $data['name'];
+  }
+  else {
+    $fields['name'] = preg_replace('/@.*$/', '', $data['mail']);
+    $fields['name'] = email_registration_cleanup_username($fields['name']);
+  }
+  watchdog('liftoff_auth_site', 'suer fields <pre>!d</pre>', array('!d' => print_r($fields,1)));
+
+  $account = user_save('', $fields);
+ 
+  // Manually set the password so it appears in the e-mail.
+  $account->password = $fields['pass'];
+  // Send the e-mail through the user module.
+  //@todo
+  //drupal_mail('user', 'register_no_approval_required', $email, NULL, array('account' => $account), variable_get('site_mail', 'noreply@example..com'));
+
+  if ($status) {
+    $node = _liftoff_auth_site_user_create_site($account, $data);
+  }
+  $return = array(
+    'account' => $account,
+    'node' => $node,
+  );
+  return drupal_json_output($return);
+}
+
+
+/**
+ * Helper function creates a new site.
+ */
+function _liftoff_auth_site_user_create_site($account, $data) {
+  $node = new stdClass();
+  $node->title = $data['title'];
+  $node->type = 'site';
+  node_object_prepare($node);
+  $node->language = LANGUAGE_NONE;
+  $node->uid = $account->uid; 
+  $node->status = 0;
+  $node->promote = 0;
+  $node->field_machine_name[LANGUAGE_NONE][0]['value'] = $data['machine_name'];
+  $node->field_profile[LANGUAGE_NONE][0]['value'] = $data['profile'];
+  $node = node_submit($node); 
+  node_save($node);
+  dpm($node);
+  return $node;
+}
+
+
+/**
+ * Implements hook_node_insert().
+ */
+function liftoff_auth_site_node_insert($node) {
+  global $user;
+  $account = user_load($node->uid);
+  $args = array(
+    'action' => 'create',  
+    'machine_name' => $node->field_machine_name[LANGUAGE_NONE][0]['value'],
+    'account' => $account->name,
+    'profile' => $node->field_profile[LANGUAGE_NONE][0]['value'],
+    'user' => $account->name,
+    'mail' => $account->mail,
+    'sitename' => !empty($_REQUEST['sitename']) ? $_REQUEST['sitename'] : NULL,
+    'lat' => !empty($_REQUEST['lat']) ? $_REQUEST['lat'] : NULL,
+    'lng' => !empty($_REQUEST['lng']) ? $_REQUEST['lng'] : NULL,
+  );
+
+  if (!empty($node->field_clone_source) && !empty($node->field_clone_source[LANGUAGE_NONE])) {
+    $args['action'] = 'clone';
+    $args['nid'] = _liftoff_auth_site_get_aegir_nid($node->field_clone_source[LANGUAGE_NONE][0]['target_id']);
+  }
+
+  // @todo: temp? Make a new Helm install a clone (not a full site-install)
+  if ($args['profile'] == 'helmcivic') {
+    $args['profile'] = 'helm';
+    $args['action'] = 'clone';
+    $args['nid'] = 974;
+  }
+
+  $aegir_node = _liftoff_auth_site_api($args);
+  $node->field_aegir_nid[LANGUAGE_NONE][0]['value'] = $aegir_node->nid;
+  $node->field_link[LANGUAGE_NONE][0]['url'] = $aegir_node->title;
+  $node->is_new = FALSE;
+
+  node_save($node);
+  dpm($node);
+  dpm($aegir_node);
+}
+
+
+/**
+ * Implements hook_node_delete().
+ */
+function liftoff_auth_site_node_delete($node) {
+  $args = array(
+    'action' => 'delete',  
+    'nid' => $node->nid,
+  );
+  $aegir_node = _liftoff_auth_site_api($args);
+}
+
+
+
+function _liftoff_auth_site_api($args) {
+  $args['key'] = LIFTOFF_AUTH_SITE_KEY;
+  $args['signature'] = LIFTOFF_AUTH_SITE_SIGNATURE;
+  $url = LIFTOFF_AUTH_SITE_URL . '?' . http_build_query($args, '', '&');
+  dpm($url);
+	$ch = curl_init();
+	$timeout = 5;
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	$data = curl_exec($ch);
+	curl_close($ch);
+	return json_decode($data);
+}
+
+
+
+
+function _liftoff_auth_site_load_by_machine_name($machine_name) {
+   $query = new EntityFieldQuery();
+
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'site')
+    ->fieldCondition('field_machine_name', 'value', $machine_name, '=')
+    ->addMetaData('account', user_load(1)); // Run the query as user 1.
+
+  $result = $query->execute();
+
+  if (isset($result['node'])) {
+    $nids = array_keys($result['node']);
+    $items = entity_load('node', $news_items_nids);
+    return $items[0];
+  }
+  return FALSE;
+}
+
+
+function _liftoff_auth_site_get_aegir_nid_by_machine_name($machine_name) {
+  if ($node = _liftoff_auth_site_load_by_machine_name($machine_name)) {
+    return $node->field_aegir_nid[LANGUAGE_NONE][0]['value'];
+  }
+  return FALSE;
+}
+
+
+function _liftoff_auth_site_get_aegir_nid($nid) {
+  if ($node = node_load($nid)) {
+    return $node->field_aegir_nid[LANGUAGE_NONE][0]['value'];
+  }
+}
+
+
+
+
+
+
+/**
+ *  ****************************  Angular app
+ */
+
+
+/**
+ * Returns the path to the JS app.
+ */
+function liftoff_auth_site_app_path() {
+  return drupal_get_path('module', 'liftoff_auth_site') .'/js/liftoff-auth-site-app/dist/';
+}
+
+/**
+ * Implements hook_library().
+ */
+function liftoff_auth_site_library() {
+  $path = liftoff_auth_site_app_path();
+  $js_settings = array('scope' => 'footer', 'weight' => 5);
+  $libraries['liftoff-auth-site-app'] = array(
+    'title' => 'liftoff-auth-site-app',
+    'website' => 'http://albatrossdigital.com',
+    'version' => '0.1',
+    'js' => array(
+      libraries_get_path('angular') . '/angular.min.js' => $js_settings,
+      $path . 'js/libraries.min.js' => $js_settings,
+      $path . 'js/app.min.js' => $js_settings,
+      drupal_get_path('module', 'liftoff_auth_site') . '/js/liftoff-auth-sites.js' => $js_settings,
+    ),
+    'css' => array(
+      $path . 'css/app.min.css' => array('weight' => 1),
+    ),
+  );
+  //dpm($libraries);
+  return $libraries;
+}
+
+
+/**
+ * Page callback
+ */
+function liftoff_auth_site_app_callback() {
+  return theme('liftoff_auth_site_app');  // @todo: variables
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function liftoff_auth_site_theme() {
+  //$path = drupal_get_path('module', 'liftoff_auth_site');
+  return array(
+    'liftoff_auth_site_app' => array(
+      'template' => 'templates/app',
+      'variables' => array(
+        'app_path' => url(liftoff_auth_site_app_path()),
+        'api_path' => url('<front>', array('absolute' => TRUE)),
+      )
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_theme_preprocess().
+ */
+function template_preprocess_liftoff_auth_site_app(&$variables) {
+  drupal_add_library('liftoff_auth_site', 'liftoff-auth-site-app');
+  global $user;
+  $settings = array(
+    'app_path' => $variables['app_path'],
+    'api_path' => $variables['api_path'],
+    'uid' => $user->uid,
+    'page_path' => url(current_path()),
+  );
+  drupal_add_js(array('liftoff_auth_site' => $settings), 'setting');
+}
+
+
+

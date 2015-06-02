@@ -1,0 +1,100 @@
+<!doctype html>
+<html class="no-js" lang="en" ng-app="siteApp">
+  <head ng-controller="metaInfoCtrl">
+    <meta charset="utf-8">
+    <base href="/" />
+    <meta property="og:image" content="http://FILLME!/images/shareimg.jpg" />
+    <meta property="og:url" content="http://FILLME!" />
+    <meta property="og:title" content="FILLME!" />
+    <meta property="og:description" content="FILLME!" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" ng-attr-content="{{metaDescription()}}" />
+    <meta name="keywords" ng-attr-content="{{metaKeywords()}}" />
+    <title ng-bind="pageTitle();">FILLME!</title>
+    <!-- build:css css/libraries.min.css -->
+    <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.css">
+    <link rel="stylesheet" href="bower_components/afkl-lazy-image/release/lazy-image-style.css">
+    <!-- bower:css -->
+    <link rel="stylesheet" href="bower_components/foundation/css/foundation.css" />
+    <!-- endbower -->
+    <!-- endbuild -->
+    <!-- build:css css/app.min.css -->
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/app_override.css">
+    <!-- endbuild -->
+    <script type="text/javascript">
+  
+    </script>
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'FILLME!', 'auto');
+    </script>
+    <script>
+        appUrl='';
+        Drupal = {};
+        Drupal.settings = {};
+        Drupal.settings.liftoff_auth_site = {};
+        Drupal.settings.liftoff_auth_site.api_path = 'http://auth.liftoff.albatrossdigital.com/';
+        Drupal.settings.liftoff_auth_site.uid = 1;
+        Drupal.settings.liftoff_auth_site.page_path = '/';
+    </script>
+  </head>
+  <body page-ready>
+
+
+
+<main ui-view></main>
+
+    
+    <!-- build:js js/angular.min.js -->
+    <script src="bower_components/angular/angular.js"></script>
+    <!-- endbuild -->
+
+    <!-- build:js js/bootstrap.min.js -->
+    <script src="bower_components/jquery/dist/jquery.js"></script>
+    <script src="bower_components/angular-bindonce/bindonce.js"></script>
+    <script src="js/utilities/scrollTo.js"></script>
+    <script src="bower_components/afkl-lazy-image/release/lazy-image.js"></script>
+    <script src="bower_components/angular-infinite-scroll/src/infinite-scroll.js"></script>
+    <script src="bower_components/ngInfiniteScroll/build/ng-infinite-scroll.js"></script>
+    <script src="bower_components/foundation/js/foundation.js"></script>
+    <!-- endbuild -->
+    <!-- build:js js/libraries.min.js -->
+    <!-- bower:js -->
+    <script src="bower_components/modernizr/modernizr.js"></script>
+    <script src="bower_components/angular-sanitize/angular-sanitize.js"></script>
+    <script src="bower_components/angular-ui-router/release/angular-ui-router.js"></script>
+    <script src="bower_components/angular-animate/angular-animate.js"></script>
+    <script src="bower_components/angular-touch/angular-touch.js"></script>
+    <script src="bower_components/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+    <script src="bower_components/angular-resource/angular-resource.js"></script>
+    <script src="bower_components/lodash/dist/lodash.compat.js"></script>
+    <script src="bower_components/angular-google-maps/dist/angular-google-maps.js"></script>
+    <script src="bower_components/fastclick/lib/fastclick.js"></script>
+    <script src="bower_components/jquery.cookie/jquery.cookie.js"></script>
+    <script src="bower_components/jquery-placeholder/jquery.placeholder.js"></script>
+    <script src="bower_components/angular-inview/angular-inview.js"></script>
+    <!-- endbower -->
+    <!-- endbuild -->
+    
+    <!-- build:js js/app.min.js -->
+    <script src="js/app.js"></script>
+    <!-- Utilities -->
+    <!-- Routes -->
+    <script src="js/routes/siteRoutes.js"></script>
+    <!-- Providers -->
+    <script src="js/providers/metaInfo.js"></script>
+    <script src="js/providers/drupalService.js"></script>
+    <!-- Controllers -->
+    <script src="js/controllers/metaInfoCtrl.js"></script>
+    <!-- Filters -->
+    <!-- Directives -->
+    <script src="js/directives/pageReady.js"></script>
+
+    <!-- endbuild -->
+  </body>
+</html>

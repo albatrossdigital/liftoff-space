@@ -1,0 +1,5 @@
+name = Liftoff API
+description = Liftoff api
+package = Liftoff
+dependencies[] = hosting_site
+core = 6.x

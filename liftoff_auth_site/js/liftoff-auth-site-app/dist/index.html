@@ -1,0 +1,51 @@
+<!doctype html>
+<html class="no-js" lang="en" ng-app="siteApp">
+  <head ng-controller="metaInfoCtrl">
+    <meta charset="utf-8">
+    <base href="/" />
+    <meta property="og:image" content="http://FILLME!/images/shareimg.jpg" />
+    <meta property="og:url" content="http://FILLME!" />
+    <meta property="og:title" content="FILLME!" />
+    <meta property="og:description" content="FILLME!" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" ng-attr-content="{{metaDescription()}}" />
+    <meta name="keywords" ng-attr-content="{{metaKeywords()}}" />
+    <title ng-bind="pageTitle();">FILLME!</title>
+    <link rel="stylesheet" href="css/libraries.min.css">
+    <link rel="stylesheet" href="css/app.min.css">
+    <script type="text/javascript">
+  
+    </script>
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'FILLME!', 'auto');
+    </script>
+    <script>
+        appUrl='';
+        Drupal = {};
+        Drupal.settings = {};
+        Drupal.settings.liftoff_auth_site = {};
+        Drupal.settings.liftoff_auth_site.api_path = 'http://auth.liftoff.albatrossdigital.com/';
+        Drupal.settings.liftoff_auth_site.uid = 1;
+        Drupal.settings.liftoff_auth_site.page_path = '/';
+    </script>
+  </head>
+  <body page-ready>
+
+
+
+<main ui-view></main>
+
+    
+    <script src="js/angular.min.js"></script>
+
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/libraries.min.js"></script>
+    
+    <script src="js/app.min.js"></script>
+  </body>
+</html>
